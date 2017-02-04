@@ -1,0 +1,63 @@
+:root = https://search-muramasa-es-zb24ibtmqrp3n5jot4fzgg6ks4.us-east-1.es.amazonaws.com
+
+GET :root
+
+# Indices
+GET :root/_cat/indices?v
+
+# CWL index
+GET :root/cwl-*
+
+# CWL mapping
+PUT :root/cwl-*
+{
+  "mappings": {
+    "asuna": {
+      "properties": {
+        "elapsedTimeMs": { "type": "integer" }
+      }
+    }
+  }
+}
+
+# Delete everything
+DELETE :root/cwl-2017.02.01
+
+# Find summoner rollover
+GET :root/cwl-2017.02.04/_search
+{
+  "_source": ["summoners", "@timestamp", "match"],
+  "query": {
+    "bool": {
+      "must": [
+        { "term": { "@log_service": "nova" } },
+        { "match": { "message": { "query": "offer summoners", "operator": "and" } } },
+        { "match": { "summoners": { "query": "NA EUW", "operator": "and" } } }
+      ]
+    }
+  },
+  "size": 5
+}
+
+# Find match rollover
+GET :root/cwl-2017.02.04/_search
+{
+  "_source": ["summoner", "@timestamp", "matches"],
+  "query": {
+    "bool": {
+      "must": [
+        { "term": { "@log_service": "nova" } },
+        { "match": { "message": { "query": "offer matches", "operator": "and" } } },
+        { "match": { "matches": { "query": "NA EUW", "operator": "and" } } }
+      ]
+    }
+  },
+  "size": 5
+}
+
+# Analyze
+GET :root/cwl-2017.02.04/_analyze
+{
+  "field": "message",
+  "text": "offer-summoner"
+}
