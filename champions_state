@@ -4,21 +4,36 @@ import itertools as it
 import requests
 import sys
 from tabulate import tabulate
+import time
 
+# Inputs
 helios = sys.argv[1]
 regions = sys.argv[2]
 patches = sys.argv[3]
-k = None if len(sys.argv) < 4 else int(sys.argv[4])
+rawLimit = None if len(sys.argv) < 4 else int(sys.argv[4])
 
+# Output Modifiers
+limit = abs(rawLimit)
+reverse = rawLimit > 0
+
+# Endpoint Info
 static_endpoint = helios + '/static/entry'
 champions_endpoint = helios + '/champions'
 champions_params = { 'regions': regions, 'patches': patches }
 
+# Request Helios
+
+start = time.time()
 print('Requesting {} for static info...'.format(static_endpoint))
 static = requests.get(static_endpoint).json()
+print('Static request took {} seconds'.format(time.time() - start))
 
+
+start = time.time()
 print('Requesting {} for champions statistics with params {}...'.format(champions_endpoint, champions_params))
 statistics = requests.get(champions_endpoint, params = champions_params).json()
+print('Champion Statistics request took {} seconds\n'.format(time.time() - start))
 
-l = sorted([[static["champions"].get(key)["name"], value["mean"]] for key, value in statistics['scalars']['plays'].items()], key=lambda a: a[1], reverse=True)
-print(tabulate(l[:k], headers=["champion name", "# of plays"]))
+# Print Table
+l = sorted([[static["champions"].get(key)["name"], value["mean"]] for key, value in statistics['scalars']['plays'].items()], key=lambda a: a[1], reverse=reverse)
+print(tabulate(l[:abs(limit)], headers=["champion name", "# of plays"]))
