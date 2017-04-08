@@ -10,35 +10,52 @@ import time
 helios = sys.argv[1]
 regions = sys.argv[2]
 patches = sys.argv[3]
-rawLimit = None if len(sys.argv) < 4 else int(sys.argv[4])
+rawLimit = None if len(sys.argv) < 5 else int(sys.argv[4])
+sortBy = 1 if len(sys.argv) < 6 else int(sys.argv[5])
 
 # Output Modifiers
-limit = abs(rawLimit)
-reverse = rawLimit > 0
+limit = abs(rawLimit) if rawLimit else None
+reverse = False if not rawLimit else rawLimit > 0
 
 # Endpoint Info
 static_endpoint = helios + '/static/entry'
 champions_endpoint = helios + '/champions'
 champions_params = { 'regions': regions, 'patches': patches }
+champions_platp_params = { 'regions': regions, 'patches': patches, 'tiers': 'PLATINUM,DIAMOND,MASTER,CHALLENGER' }
 
 # Request Helios
 
 start = time.time()
-print('Requesting {} for static info...'.format(static_endpoint))
 static = requests.get(static_endpoint).json()
-print('Static request took {} seconds'.format(time.time() - start))
+print('Static request took {} seconds\n'.format(time.time() - start))
 
 start = time.time()
-print('Requesting {} for champions statistics with params {}...'.format(champions_endpoint, champions_params))
-statistics = requests.get(champions_endpoint, params = champions_params).json()
-print('Champion Statistics request took {} seconds\n'.format(time.time() - start))
+print('Requesting {} for all tiers champions statistics with params {}...'.format(champions_endpoint, champions_params))
+all_statistics = requests.get(champions_endpoint, params = champions_params).json()
+print('All tiers Champion Statistics request took {} seconds\n'.format(time.time() - start))
+
+start = time.time()
+print('Requesting {} for plat+ champions statistics with params {}...'.format(champions_endpoint, champions_platp_params))
+platp_statistics = requests.get(champions_endpoint, params = champions_platp_params).json()
+print('Plat+ Champion Statistics request took {} seconds\n'.format(time.time() - start))
 
 # Map of champion id to plays Statistic
-plays = statistics['scalars']['plays'].items()
+all_plays = all_statistics['scalars']['plays']
+platp_plays = platp_statistics['scalars']['plays']
 
 # Print Total number of Plays
-print("Total # of plays: {}\n".format(sum((int(value["mean"]) for key, value in plays))))
+print("Total # of plays for all tiers: {}".format(sum((int(value["mean"]) for key, value in all_plays.items()))))
+print("Total # of plays for plat+: {}\n".format(sum((int(value["mean"]) for key, value in platp_plays.items()))))
+
+# Discrepancies between all tiers and plat+ champions data
+print("Total # of champions: {}".format(len(static["champions"])))
+print("All tiers # of champions: {}".format(len(all_plays)))
+print("Plat+ # of champions: {}".format(len(platp_plays)))
+print("all - platp: {}".format(set(all_plays)-set(platp_plays)))
+print("platp - all: {}\n".format(set(platp_plays)-set(all_plays)))
 
 # Print Table
-l = sorted([[static["champions"].get(key)["name"], value["mean"]] for key, value in plays], key=lambda a: a[1], reverse=reverse)
-print(tabulate(l[:abs(limit)], headers=["champion name", "# of plays"]))
+intersection = set(all_plays) & set(platp_plays)
+unsorted = [[static["champions"].get(key)["name"], all_plays.get(key)["mean"], platp_plays.get(key)["mean"]] for key in intersection]
+l = sorted(unsorted, key=lambda a: a[sortBy], reverse=reverse)
+print(tabulate(l[:abs(limit)], headers=["champion name", "all tiers plays", "plat+ plays"]))
