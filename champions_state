@@ -28,12 +28,17 @@ print('Requesting {} for static info...'.format(static_endpoint))
 static = requests.get(static_endpoint).json()
 print('Static request took {} seconds'.format(time.time() - start))
 
-
 start = time.time()
 print('Requesting {} for champions statistics with params {}...'.format(champions_endpoint, champions_params))
 statistics = requests.get(champions_endpoint, params = champions_params).json()
 print('Champion Statistics request took {} seconds\n'.format(time.time() - start))
 
+# Map of champion id to plays Statistic
+plays = statistics['scalars']['plays'].items()
+
+# Print Total number of Plays
+print("Total # of plays: {}\n".format(sum((int(value["mean"]) for key, value in plays))))
+
 # Print Table
-l = sorted([[static["champions"].get(key)["name"], value["mean"]] for key, value in statistics['scalars']['plays'].items()], key=lambda a: a[1], reverse=reverse)
+l = sorted([[static["champions"].get(key)["name"], value["mean"]] for key, value in plays], key=lambda a: a[1], reverse=reverse)
 print(tabulate(l[:abs(limit)], headers=["champion name", "# of plays"]))
