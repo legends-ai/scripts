@@ -1,30 +1,40 @@
 #!/usr/bin/env python3
 
 import itertools as it
+from optparse import OptionParser
 import requests
 import sys
 from tabulate import tabulate
 import time
+from tqdm import tqdm
 
-# Inputs
-helios = sys.argv[1]
-regions = sys.argv[2]
-patches = sys.argv[3]
-rawLimit = None if len(sys.argv) < 5 else int(sys.argv[4])
-sortBy = 1 if len(sys.argv) < 6 else int(sys.argv[5])
+# Setup optparse
+parser = OptionParser()
+parser.add_option('--helios')
+parser.add_option('-r', '--regions')
+parser.add_option('-p', '--patches')
+parser.add_option('--min_play_rate', type='float', dest='mpr', default=0)
+parser.add_option('--limit', type='int', default=None)
+parser.add_option('--sort_by', type='int', dest='sortBy', default=1)
 
-# Output Modifiers
-limit = abs(rawLimit) if rawLimit else None
-reverse = False if not rawLimit else rawLimit > 0
+(options, args) = parser.parse_args()
 
 # Endpoint Info
-static_endpoint = helios + '/static/entry'
-champions_endpoint = helios + '/champions'
-champions_params = { 'regions': regions, 'patches': patches }
-champions_platp_params = { 'regions': regions, 'patches': patches, 'tiers': 'PLATINUM,DIAMOND,MASTER,CHALLENGER' }
+static_endpoint = options.helios + '/static/entry'
+champions_endpoint = options.helios + '/champions'
+champions_params = {
+    'regions': options.regions,
+    'patches': options.patches,
+    'min_play_rate': options.mpr
+}
+champions_platp_params = {
+    'regions': options.regions,
+    'patches': options.patches,
+    'min_play_rate': options.mpr,
+    'tiers': 'PLATINUM,DIAMOND,MASTER,CHALLENGER'
+}
 
-# Request Helios
-
+# Request Helios for static and all champions data
 start = time.time()
 static = requests.get(static_endpoint).json()
 print('Static request took {} seconds\n'.format(time.time() - start))
@@ -51,11 +61,23 @@ print("Total # of plays for plat+: {}\n".format(sum((int(value["mean"]) for key,
 print("Total # of champions: {}".format(len(static["champions"])))
 print("All tiers # of champions: {}".format(len(all_plays)))
 print("Plat+ # of champions: {}".format(len(platp_plays)))
-print("all - platp: {}".format(set(all_plays)-set(platp_plays)))
-print("platp - all: {}\n".format(set(platp_plays)-set(all_plays)))
+print("all - platp: {}".format(set(all_plays) - set(platp_plays)))
+print("platp - all: {}\n".format(set(platp_plays) -set(all_plays)))
+
+# Request Helios for plat+ champion data
+def getPlays(cid):
+    res = requests.get(options.helios + '/champion/' + cid, params = champions_platp_params).json()
+    return sum((x["numMatches"] for x in res["roles"]["roleStats"]))
+
+d = {cid: getPlays(cid) for cid in tqdm(static["champions"].keys())}
+print("# of individual champions: {}".format(len(d)))
+print("All champions >0 plays? {}".format(all((x > 0 for x in d.values()))))
 
 # Print Table
 intersection = set(all_plays) & set(platp_plays)
 unsorted = [[static["champions"].get(key)["name"], all_plays.get(key)["mean"], platp_plays.get(key)["mean"]] for key in intersection]
-l = sorted(unsorted, key=lambda a: a[sortBy], reverse=reverse)
-print(tabulate(l[:abs(limit)], headers=["champion name", "all tiers plays", "plat+ plays"]))
+
+limit = abs(options.limit) if options.limit else None
+reverse = False if not options.limit else options.limit > 0
+l = sorted(unsorted, key=lambda a: a[options.sortBy], reverse=reverse)
+print(tabulate(l[:limit], headers=["champion name", "all tiers plays", "plat+ plays"]))
