@@ -6,7 +6,6 @@ import requests
 import sys
 from tabulate import tabulate
 import time
-from tqdm import tqdm
 
 # Setup optparse
 parser = OptionParser()
@@ -57,25 +56,8 @@ platp_plays = platp_statistics['scalars']['plays']
 print("Total # of plays for all tiers: {}".format(sum((int(value["mean"]) for key, value in all_plays.items()))))
 print("Total # of plays for plat+: {}\n".format(sum((int(value["mean"]) for key, value in platp_plays.items()))))
 
-# Discrepancies between all tiers and plat+ champions data
-print("Total # of champions: {}".format(len(static["champions"])))
-print("All tiers # of champions: {}".format(len(all_plays)))
-print("Plat+ # of champions: {}".format(len(platp_plays)))
-print("all - platp: {}".format(set(all_plays) - set(platp_plays)))
-print("platp - all: {}\n".format(set(platp_plays) -set(all_plays)))
-
-# Request Helios for plat+ champion data
-def getPlays(cid):
-    res = requests.get(options.helios + '/champion/' + cid, params = champions_platp_params).json()
-    return sum((x["numMatches"] for x in res["roles"]["roleStats"]))
-
-d = {cid: getPlays(cid) for cid in tqdm(static["champions"].keys())}
-print("# of individual champions: {}".format(len(d)))
-print("All champions >0 plays? {}".format(all((x > 0 for x in d.values()))))
-
 # Print Table
-intersection = set(all_plays) & set(platp_plays)
-unsorted = [[static["champions"].get(key)["name"], all_plays.get(key)["mean"], platp_plays.get(key)["mean"]] for key in intersection]
+unsorted = [[static["champions"].get(key)["name"], value["mean"], platp_plays.get(key)["mean"]] for key, value in all_plays.items()]
 
 limit = abs(options.limit) if options.limit else None
 reverse = False if not options.limit else options.limit > 0
