@@ -49,8 +49,8 @@ platp_statistics = requests.get(champions_endpoint, params = champions_platp_par
 print('Plat+ Champion Statistics request took {} seconds\n'.format(time.time() - start))
 
 # Map of champion id to plays Statistic
-all_plays = all_statistics['scalars']['plays']
-platp_plays = platp_statistics['scalars']['plays']
+all_plays = all_statistics['plays']
+platp_plays = platp_statistics['plays']
 
 # Print Total number of Plays
 print("Total # of plays for all tiers: {}".format(sum((int(value["mean"]) for key, value in all_plays.items()))))
