@@ -6,6 +6,7 @@
   },
   "dependencies": {
     "aws-sdk": "^2.112.0",
+    "bluebird": "^3.5.0",
     "request": "^2.81.0",
     "request-promise": "^4.2.1"
   }

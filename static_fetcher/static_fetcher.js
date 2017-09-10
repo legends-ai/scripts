@@ -1,11 +1,14 @@
 const AWS = require('aws-sdk')
 const qs = require('querystring')
+const Promise = require('bluebird')
 const rp = require('request-promise')
 
 if (process.argv.length < 3) {
     console.log("Must pass in riot api key as command line argument")
     process.exit(1)
 }
+
+AWS.config.setPromisesDependency(Promise)
 
 const S3_BUCKET = "static.asuna.io"
 const RIOT_API_KEY = process.argv[2]
@@ -113,13 +116,11 @@ const versions = Object.values(patchVersionMap).sort().reverse()
 
 const s3 = new AWS.S3({apiVersion: '2006-03-01'})
 const uploadToS3 = (platform, version, type, data) => {
-    s3.upload({
+    return s3.upload({
         Bucket: S3_BUCKET,
         Key: `league/riot/${version}/${platform}/en_US/${type}`,
         Body: data
-    }).promise().then(
-        (res) => console.log(`${version}/${platform}: Uploaded ${type} to S3`)
-    )
+    }).promise().then(x => type)
 }
 
 const storeStatic = (platform, version, type, query = {}) => {
@@ -130,8 +131,12 @@ const storeStatic = (platform, version, type, query = {}) => {
         api_key: RIOT_API_KEY
     })
 
-    rp(`https://${platform}.${RIOT_HOST}/lol/static-data/v3/${type}?${q}`)
+    return rp(`https://${platform}.${RIOT_HOST}/lol/static-data/v3/${type}?${q}`)
         .then(res => uploadToS3(platform, version, type, res))
+        .catch(err => {
+            console.log(`${version}/${platform}: Failed to store ${type}: ${err}`)
+            throw type
+        })
 }
 
 let i = 0;
@@ -139,25 +144,37 @@ const fetchStatic = () => {
     const version = versions[i++]
     console.log(`\nFetching static for version ${version}`)
 
-    platforms.map(platform => {
-        // Champions
-        storeStatic(platform, version, 'champions', { champListData: "all" })
+    Promise.all(
+        platforms.map(platform => Promise.all([
+            // Champions
+            storeStatic(platform, version, 'champions', { champListData: "all" }),
 
-        // Items
-        storeStatic(platform, version, 'items', { itemListData: "all" })
+            // Items
+            storeStatic(platform, version, 'items', { itemListData: "all" }),
 
-        // Masteries
-        storeStatic(platform, version, 'masteries', { masteryListData: "all" })
+            // Masteries
+            storeStatic(platform, version, 'masteries', { masteryListData: "all" }),
 
-        // Runes
-        storeStatic(platform, version, 'runes', { runeListData: "all" })
+            // Runes
+            storeStatic(platform, version, 'runes', { runeListData: "all" }),
 
-        // SummonerSpells
-        storeStatic(platform, version, 'summoner-spells', {
-            dataById: "true",
-            spellListData: "all"
+            // SummonerSpells
+            storeStatic(platform, version, 'summoner-spells', {
+                dataById: "true",
+                spellListData: "all"
+            })
+        ].map(x => x.reflect())).then(results => {
+            const success = results.filter(x => x.isFulfilled()).map(x => x.value())
+            const failed = results.filter(x => !x.isFulfilled()).map(x => x.reason())
+
+            if (success.length == 5)
+                return version
+
+            console.log(`${version}/${platform} - Failed: ${failed.join(" ")}`)
+            return version
         })
-    })
+      )
+    ).then(x => console.log(`${x[0]} Complete`))
 }
 
 fetchStatic()
