@@ -146,23 +146,11 @@ const fetchStatic = () => {
 
     Promise.all(
         platforms.map(platform => Promise.all([
-            // Champions
-            storeStatic(platform, version, 'champions', { champListData: "all" }),
-
-            // Items
-            storeStatic(platform, version, 'items', { itemListData: "all" }),
-
-            // Masteries
-            storeStatic(platform, version, 'masteries', { masteryListData: "all" }),
-
-            // Runes
-            storeStatic(platform, version, 'runes', { runeListData: "all" }),
-
-            // SummonerSpells
-            storeStatic(platform, version, 'summoner-spells', {
-                dataById: "true",
-                spellListData: "all"
-            })
+            storeStatic(platform, version, 'champions', { tags: "all" }),
+            storeStatic(platform, version, 'items', { tags: "all" }),
+            storeStatic(platform, version, 'masteries', { tags: "all" }),
+            storeStatic(platform, version, 'runes', { tags: "all" }),
+            storeStatic(platform, version, 'summoner-spells', {dataById: "true", tags: "all"})
         ].map(x => x.reflect())).then(results => {
             const success = results.filter(x => x.isFulfilled()).map(x => x.value())
             const failed = results.filter(x => !x.isFulfilled()).map(x => x.reason())
